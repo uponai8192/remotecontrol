@@ -1,0 +1,14 @@
+{
+  "allowed_senders": ["+15551234567", "you@icloud.com"],
+  "allow_self_chat": true,
+  "work_dir": "~/remotecontrol-work",
+  "permission_mode": "default",
+  "allowed_tools": ["mcp__playwright", "Read", "Glob", "Grep"],
+  "max_turns": 60,
+  "task_timeout_minutes": 15,
+  "poll_seconds": 3,
+  "claude_bin": "claude",
+  "model": "",
+  "playwright_profile_dir": "~/.remotecontrol/playwright-profile",
+  "playwright_extra_args": []
+}
