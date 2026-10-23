@@ -15,5 +15,9 @@ if tmux has-session -t "$SESSION" 2>/dev/null; then
 fi
 
 tmux new-session -d -s "$SESSION" "caffeinate -dis python3 bridge.py; echo 'bridge exited'; read"
+sleep 3
+echo "--- recent log ---"
+tail -n 5 state/bridge.log 2>/dev/null
+echo "------------------"
 echo "Bridge started. Watch it with: tmux attach -t $SESSION   (detach: Ctrl-b d)"
 echo "Stop it with: tmux kill-session -t $SESSION"

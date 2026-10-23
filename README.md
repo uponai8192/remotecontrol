@@ -42,11 +42,14 @@ You need: macOS, Claude Code logged in (`claude` works in Terminal), Node.js
 
 4. **Log in to websites in the bridge's browser.** The bridge's browser has its
    own profile (`~/.remotecontrol/playwright-profile`), separate from your normal
-   Chrome and from any Playwright session in your terminal. Logins saved there
-   persist. Start the bridge (step 5), then text something like
-   `open amazon.com and wait 3 minutes` and log in by hand in the window that
-   appears. Repeat for each site you'll need.
-   If Playwright says Chrome isn't installed, run `npx playwright install chrome`.
+   Chrome and from any Playwright session in your terminal. Open Chrome with that
+   profile and log in to every site you'll want it to use:
+   ```bash
+   open -na "Google Chrome" --args --user-data-dir="$HOME/.remotecontrol/playwright-profile"
+   ```
+   Then **quit that Chrome window completely (Cmd-Q)**. While it's open, the
+   profile is locked and the bridge can't start its browser.
+   If Playwright later says Chrome isn't installed, run `npx playwright install chrome`.
 
 5. **Start it**
    ```bash
@@ -55,9 +58,12 @@ You need: macOS, Claude Code logged in (`claude` works in Terminal), Node.js
    This runs the bridge in tmux under `caffeinate` so the Mac doesn't sleep.
    Start it from Terminal, the app that has Full Disk Access, not over SSH.
    Keep the Mac plugged in. If the lid will be closed, connect a display.
+   Within a few seconds your phone should get **"🤖 Bridge online."** If it
+   doesn't, the log lines printed by `start.sh` say what's wrong.
 
-6. **Test it from your phone** before you go: send a real task, then `STOP`,
-   `NEW` and `STATUS`.
+6. **Test it from your phone** before you go: text
+   `go to amazon.com and tell me if I'm logged in` (this proves your logins
+   carried over), then try `STATUS`, `STOP` and `NEW`.
 
 ## Texting it
 

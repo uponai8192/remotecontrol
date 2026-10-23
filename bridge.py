@@ -202,6 +202,21 @@ def fetch_new(conn, after_rowid):
     return rows
 
 
+def recent_allowed(conn, cfg, top, limit=8):
+    """Recent messages in chats with an allowlisted handle, newest last."""
+    rows = fetch_new(conn, max(0, top - 2000))
+    return [r for r in rows if handle_matches(r["chat_identifier"], cfg["allowed"])
+            or handle_matches(r["sender"], cfg["allowed"])][-limit:]
+
+
+def reply_target(recent, cfg):
+    """Where to send unprompted texts: the latest allowlisted chat, else the first handle."""
+    if recent:
+        return recent[-1]
+    target = sorted(cfg["allowed"])[0]
+    return {"chat_guid": None, "chat_identifier": target, "sender": target}
+
+
 def is_command(row, cfg):
     """Should this message be treated as an instruction?"""
     if not row["text"] or row["text"].startswith(MARKER.strip()) or row["group"]:
@@ -314,6 +329,7 @@ class Runner:
         self.proc = None
         self.task = None
         self.started = None
+        self.cancelled = None
         self.lock = threading.Lock()
 
     def busy(self):
@@ -340,7 +356,7 @@ class Runner:
             send(row, f"Timed out after {self.cfg['task_timeout_minutes']} min. Text a follow-up to continue, or NEW to start over.")
             self._clear(proc)
             return
-        if proc.returncode in (-signal.SIGTERM, -signal.SIGKILL):
+        if self.cancelled is proc:
             self._clear(proc)
             return  # cancelled via STOP; already replied
         result, session_id, is_error = parse_claude_output(out)
@@ -372,6 +388,7 @@ class Runner:
     def stop(self):
         with self.lock:
             proc = self.proc
+            self.cancelled = proc
         if proc:
             self._kill(proc)
         return proc is not None
@@ -411,10 +428,21 @@ def handle(row, runner, state):
 def run():
     cfg = load_config()
     state = load_state()
-    conn = open_db()
+    try:
+        conn = open_db()
+        top = max_rowid(conn)
+    except sqlite3.Error as e:
+        log(f"!! Can't read the Messages database ({e}). Give Full Disk Access to the app "
+            "running this (Terminal), reopen it, and restart.")
+        sys.exit(1)
     if "last_rowid" not in state:
-        state["last_rowid"] = max_rowid(conn)  # don't replay history
+        state["last_rowid"] = top  # don't replay history
         save_state(state)
+    # Proves both permissions work in this exact runtime (e.g. under tmux).
+    if not send(reply_target(recent_allowed(conn, cfg, top), cfg), "Bridge online. Text HELP for commands."):
+        log("!! Couldn't send the startup text. Allow Terminal to control Messages "
+            "(System Settings > Privacy & Security > Automation) and restart.")
+        sys.exit(1)
     runner = Runner(cfg, state)
     log(f"Bridge running. Allowed: {sorted(cfg['allowed'])}. Work dir: {cfg['work_dir']}")
     while True:
@@ -460,9 +488,7 @@ def doctor():
         return ok
 
     print("\nRecent messages in your allowlisted chats (newest last):")
-    rows = fetch_new(conn, max(0, top - 2000))
-    mine = [r for r in rows if handle_matches(r["chat_identifier"], cfg["allowed"])
-            or handle_matches(r["sender"], cfg["allowed"])][-8:]
+    mine = recent_allowed(conn, cfg, top)
     if not mine:
         print("  (none found - text the Mac from your phone, then rerun doctor)")
     for r in mine:
@@ -473,9 +499,7 @@ def doctor():
           "  text, the message body couldn't be decoded; if from_me and ignored, check\n"
           "  allow_self_chat and that allowed_senders has the handle you text.\n")
 
-    target = next(iter(sorted(cfg["allowed"])))
-    chat = mine[-1] if mine else {"chat_guid": None, "chat_identifier": target, "sender": target}
-    sent = send(chat, "remotecontrol doctor: test message. If you see this on your phone, sending works.")
+    sent = send(reply_target(mine, cfg), "remotecontrol doctor: test message. If you see this on your phone, sending works.")
     check("send iMessage (Automation > Messages)", sent,
           "check your phone" if sent else "allow your terminal to control Messages when macOS asks, then rerun")
 
