@@ -203,10 +203,10 @@ def fetch_new(conn, after_rowid):
 
 
 def recent_allowed(conn, cfg, top, limit=8):
-    """Recent messages in chats with an allowlisted handle, newest last."""
+    """Recent messages in one-to-one chats with an allowlisted handle, newest last."""
     rows = fetch_new(conn, max(0, top - 2000))
-    return [r for r in rows if handle_matches(r["chat_identifier"], cfg["allowed"])
-            or handle_matches(r["sender"], cfg["allowed"])][-limit:]
+    return [r for r in rows if not r["group"] and (handle_matches(r["chat_identifier"], cfg["allowed"])
+            or handle_matches(r["sender"], cfg["allowed"]))][-limit:]
 
 
 def reply_target(recent, cfg):
